@@ -1,0 +1,12 @@
+{
+  "username": "USERNAME",
+  "password": "PASSWORD",
+  "transmission": {
+    "host": "HOSTNAME",
+    "port": 9091,
+    "username": "USERNAME",
+    "password": "PASSWORD",
+    "url": "/transmission/rpc"
+  },
+  "add_paused": true
+}
