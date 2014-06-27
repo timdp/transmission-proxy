@@ -44,7 +44,7 @@ var assignSessionID = function(req, res) {
 var authenticate = auth.connect(auth.basic({
   realm: 'Transmission'
 }, function(username, password, callback) {
-  callback(username === config.username && password == config.password);
+  callback(username === config.username && password === config.password);
 }));
 
 var app = express();
