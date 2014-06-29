@@ -48,22 +48,34 @@ var authenticate = auth.connect(auth.basic({
 }));
 
 var app = express();
+
 app.use(logfmt.requestLogger());
+
 app.use(function(req, res, next) {
   req.rawBody = '';
   req.on('data', function(data) {
     req.rawBody += data;
   })
   req.on('end', function() {
-    try {
-      req.body = JSON.parse(req.rawBody);
-    } catch (e) {
+    if (req.rawBody.length === 0) {
       req.body = {};
-    } finally {
       next();
+    } else {
+      try {
+        req.body = JSON.parse(req.rawBody);
+      } catch (e) {
+        req.body = {};
+      } finally {
+        next();
+      }
     }
   })
 });
+
+app.all('/', function(req, res) {
+  res.send('It works!');
+});
+
 app.all(config.transmission.url, authenticate, function(req, res) {
   res.set('Server', 'Transmission');
   var sessionID = req.get('X-Transmission-Session-Id');
