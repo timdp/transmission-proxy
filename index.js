@@ -37,8 +37,8 @@ var assignSessionID = function(req, res) {
   var sessionID = randomstring.generate(48);
   res.set('X-Transmission-Session-Id', sessionID);
   res.set('Content-Type', 'text/html; charset=ISO-8859-1');
-  res.send(new Buffer('<h1>409: Conflict</h1>' +
-    '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>'));
+  res.send('<h1>409: Conflict</h1>' +
+    '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>');
 };
 
 var authenticate = auth.connect(auth.basic({
