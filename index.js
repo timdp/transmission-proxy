@@ -17,6 +17,10 @@ var transmission = new Transmission(config.transmission);
 var processAddTorrent = function(req, res, reply) {
   if (typeof req.body.arguments === 'object' &&
       typeof req.body.arguments.filename === 'string') {
+    logfmt.log({
+      method: 'torrent-add',
+      filename: req.body.arguments.filename
+    });
     transmission.addUrl(req.body.arguments.filename, {
       paused: config.add_paused
     }, config.ignore_result ? function() {} : reply);
