@@ -14,12 +14,7 @@ var config = require('./config.json');
 
 var transmission = new Transmission(config.transmission);
 
-var processAddTorrent = function(req, res) {
-  var reply = function(err) {
-    res.json({
-      success: (err === null)
-    });
-  }
+var processAddTorrent = function(req, res, reply) {
   if (typeof req.body.arguments === 'object' &&
       typeof req.body.arguments.filename === 'string') {
     transmission.addUrl(req.body.arguments.filename, {
@@ -82,13 +77,16 @@ app.all(config.transmission.url, authenticate, function(req, res) {
   if (typeof sessionID === 'undefined') {
     assignSessionID(req, res);
   } else {
+    var reply = function(err) {
+      res.json({
+        success: (err === null)
+      });
+    }
     res.set('X-Transmission-Session-Id', sessionID);
     if (typeof req.body === 'object' && req.body.method === 'torrent-add') {
-      processAddTorrent(req, res);
+      processAddTorrent(req, res, reply);
     } else {
-      res.json({
-        success: false
-      });
+      reply('Forbidden');
     }
   }
 });
