@@ -83,7 +83,7 @@ var processAddTorrent = function(body) {
   }
 };
 
-var assignSessionID = function(req, res) {
+var assignSessionID = function(res) {
   var sessionID = randomstring.generate(48);
   res.set('X-Transmission-Session-Id', sessionID);
   res.set('Content-Type', 'text/html; charset=ISO-8859-1');
@@ -131,7 +131,7 @@ app.all(config.transmission.url, authenticate, function(req, res) {
   res.set('Server', 'Transmission');
   var sessionID = req.get('X-Transmission-Session-Id');
   if (typeof sessionID === 'undefined') {
-    assignSessionID(req, res);
+    assignSessionID(res);
   } else {
     res.set('X-Transmission-Session-Id', sessionID);
     if (typeof req.body === 'object' && req.body.method === 'torrent-add') {
