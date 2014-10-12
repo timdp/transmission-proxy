@@ -5,6 +5,7 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 }
 
 var Transmission = require('transmission');
+var q = require('q');
 var express = require('express');
 var logfmt = require('logfmt');
 var auth = require('http-auth');
@@ -12,24 +13,75 @@ var randomstring = require('randomstring');
 
 var config = require('./config.json');
 
+var queue = [];
+var processingQueue = false;
+var retryTimeout = null;
+
 var transmission = new Transmission(config.transmission);
+var boundAddUrl = q.nbind(transmission.addUrl, transmission);
+
+var addURL = function(filename) {
+  logfmt.log({
+    action: 'add',
+    filename: filename
+  });
+  return boundAddUrl(filename, {
+    paused: config.add_paused
+  });
+};
+
+var processQueue = function() {
+  if (retryTimeout !== null) {
+    clearTimeout(retryTimeout);
+    retryTimeout = null;
+  }
+  if (processingQueue) {
+    return;
+  }
+  processingQueue = true;
+  var filenames = queue.slice();
+  queue = [];
+  filenames.reduce(function(prev, filename) {
+    return prev.then(function() {
+      return addURL(filename)
+        .then(function() {
+          logfmt.log({
+            result: 'added',
+            filename: filename
+          });
+        })
+        .fail(function(err) {
+          logfmt.log({
+            result: 'failed',
+            filename: filename,
+            error: err
+          });
+          queue.push(filename);
+        });
+    });
+  }, q())
+    .fin(function() {
+      logfmt.log({
+        remaining: queue.length
+      });
+      if (queue.length) {
+        retryTimeout = setTimeout(processQueue, (config.retry_after || 5) * 1000);
+      }
+      processingQueue = false;
+    });
+};
 
 var processAddTorrent = function(req, res, reply) {
   if (typeof req.body.arguments === 'object' &&
-      typeof req.body.arguments.filename === 'string') {
+    typeof req.body.arguments.filename === 'string') {
     logfmt.log({
-      method: 'torrent-add',
+      action: 'enqueue',
       filename: req.body.arguments.filename
     });
-    transmission.addUrl(req.body.arguments.filename, {
-      paused: config.add_paused
-    }, config.ignore_result ? function() {} : reply);
-  } else if (!config.ignore_result) {
-    reply('Invalid argument');
+    queue.push(req.body.arguments.filename);
+    processQueue();
   }
-  if (config.ignore_result) {
-    reply(null);
-  }
+  reply(null);
 };
 
 var assignSessionID = function(req, res) {
@@ -41,10 +93,11 @@ var assignSessionID = function(req, res) {
 };
 
 var authenticate = auth.connect(auth.basic({
-  realm: 'Transmission'
-}, function(username, password, callback) {
-  callback(username === config.username && password === config.password);
-}));
+    realm: 'Transmission'
+  },
+  function(username, password, callback) {
+    callback(username === config.username && password === config.password);
+  }));
 
 var app = express();
 

@@ -1,6 +1,6 @@
 {
   "name": "transmission-proxy",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,11 +8,15 @@
   },
   "author": "Tim De Pauw <hi@tmdpw.eu> (http://tmdpw.eu/)",
   "license": "MIT",
+  "engines": {
+    "node": "0.10.x"
+  },
   "dependencies": {
-    "express": "^4.9.4",
+    "express": "^4.9.7",
     "http-auth": "^2.2.0",
     "logfmt": "^1.2.0",
-    "newrelic": "^1.11.2",
+    "newrelic": "^1.12.0",
+    "q": "^1.0.1",
     "randomstring": "^1.0.3",
     "transmission": "^0.4.1"
   }
