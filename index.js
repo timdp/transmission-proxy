@@ -71,17 +71,16 @@ var processQueue = function() {
     });
 };
 
-var processAddTorrent = function(req, res, reply) {
-  if (typeof req.body.arguments === 'object' &&
-    typeof req.body.arguments.filename === 'string') {
+var processAddTorrent = function(body) {
+  if (typeof body.arguments === 'object' &&
+      typeof body.arguments.filename === 'string') {
     logfmt.log({
       action: 'enqueue',
-      filename: req.body.arguments.filename
+      filename: body.arguments.filename
     });
-    queue.push(req.body.arguments.filename);
+    queue.push(body.arguments.filename);
     processQueue();
   }
-  reply(null);
 };
 
 var assignSessionID = function(req, res) {
@@ -134,16 +133,16 @@ app.all(config.transmission.url, authenticate, function(req, res) {
   if (typeof sessionID === 'undefined') {
     assignSessionID(req, res);
   } else {
-    var reply = function(err) {
-      res.json({
-        success: (err === null)
-      });
-    };
     res.set('X-Transmission-Session-Id', sessionID);
     if (typeof req.body === 'object' && req.body.method === 'torrent-add') {
-      processAddTorrent(req, res, reply);
+      processAddTorrent(req.body);
+      res.json({
+        success: true
+      });
     } else {
-      reply('Forbidden');
+      res.json({
+        success: false
+      });
     }
   }
 });
