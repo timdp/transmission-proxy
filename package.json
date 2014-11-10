@@ -12,11 +12,11 @@
     "node": "0.10.x"
   },
   "dependencies": {
-    "express": "^4.9.7",
+    "express": "^4.10.2",
     "http-auth": "^2.2.0",
     "logfmt": "^1.2.0",
-    "newrelic": "^1.12.0",
-    "q": "^1.0.1",
+    "newrelic": "^1.13.2",
+    "q": "^1.1.0",
     "randomstring": "^1.0.3",
     "transmission": "^0.4.1"
   }
