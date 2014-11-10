@@ -13,9 +13,7 @@ var pg = require('pg');
 var randomstring = require('randomstring');
 
 var config = require('./config.json');
-var useDB = !!process.env.DATABASE_URL;
 
-var queue = [];
 var processingQueue = false;
 var retryTimeout = null;
 
@@ -27,11 +25,12 @@ var logError = function(err) {
 };
 
 var connectToDatabase = function() {
+  var url = process.env.DATABASE_URL || config.database_url;
   logfmt.log({
     action: 'connect',
-    database_url: process.env.DATABASE_URL
+    database_url: url
   });
-  return q.ninvoke(pg, 'connect', process.env.DATABASE_URL);
+  return q.ninvoke(pg, 'connect', url);
 };
 
 var query = function(sql, params) {
@@ -56,7 +55,7 @@ var query = function(sql, params) {
     });
 };
 
-var retrieveDatabaseQueue = function() {
+var retrieveQueue = function() {
   var sql = 'SELECT filename FROM queue';
   return query(sql)
     .then(function(rows) {
@@ -66,12 +65,15 @@ var retrieveDatabaseQueue = function() {
     });
 };
 
-var addToDatabaseQueue = function(filename) {
+var addToQueue = function(filename) {
   var sql = 'INSERT INTO queue (filename) VALUES ($1)';
   return query(sql, [filename]);
 };
 
-var removeFromDatabaseQueue = function(filenames) {
+var removeFromQueue = function(filenames) {
+  if (!filenames.length) {
+    return;
+  }
   var ph = filenames.map(function(filename, idx) {
     return '$' + (idx + 1);
   }).join(',');
@@ -79,7 +81,7 @@ var removeFromDatabaseQueue = function(filenames) {
   return query(sql, filenames);
 };
 
-var addURL = function(filename) {
+var addToTransmission = function(filename) {
   logfmt.log({
     action: 'add',
     filename: filename
@@ -89,9 +91,9 @@ var addURL = function(filename) {
   });
 };
 
-var getAddURLPromise = function(filename) {
+var getAddToTransmissionPromise = function(filename) {
   return function() {
-    return addURL(filename)
+    return addToTransmission(filename)
       .fail(function(err) {
         throw new Error('Failed to add "' + filename + '": ' + err);
       });
@@ -107,52 +109,29 @@ var processQueue = function() {
     return;
   }
   processingQueue = true;
-  var succeeded = {};
-  var promise;
-  if (useDB)  {
-    promise = retrieveDatabaseQueue()
-      .then(function(dbQueue) {
-        queue = dbQueue;
-      })
-      .fail(logError);
-  } else {
-    promise = q();
-  }
-  queue.reduce(function(prev, filename) {
-    var addURLPromise = getAddURLPromise(filename)
-      .then(function() {
-        logfmt.log({
-          result: 'added',
-          filename: filename
+  var succeeded = [];
+  retrieveQueue()
+  .then(function(queue) {
+    return queue.reduce(function(prev, filename) {
+      var promise = getAddToTransmissionPromise(filename)
+        .then(function() {
+          logfmt.log({
+            result: 'added',
+            filename: filename
+          });
+          succeeded.push(filename);
         });
-        succeeded[filename] = true;
-      });
-    return prev.then(addURLPromise);
-  }, promise)
+      return prev.then(promise);
+    }, q());
+  })
   .then(function() {
-    var succeededNames = Object.keys(succeeded);
-    if (succeededNames.length) {
-      queue = queue.filter(function(filename) {
-        return succeeded[filename];
-      });
-    }
-    return succeededNames;
+    return succeeded;
   })
-  .then(function(succeededNames) {
-    if (!succeededNames.length || !useDB) {
-      return;
-    }
-    return removeFromDatabaseQueue(succeededNames);
-  })
+  .then(removeFromQueue)
   .fail(logError)
   .fin(function() {
-    logfmt.log({
-      remaining: queue.length
-    });
-    if (queue.length) {
-      var time = (config.retry_after || 5 * 60) * 1000;
-      retryTimeout = setTimeout(processQueue, time);
-    }
+    var time = (config.retry_after || 5 * 60) * 1000;
+    retryTimeout = setTimeout(processQueue, time);
     processingQueue = false;
   });
 };
@@ -165,16 +144,9 @@ var processAddTorrent = function(body) {
       action: 'enqueue',
       filename: filename
     });
-    if (queue.indexOf(filename) < 0) {
-      queue.push(filename);
-      if (useDB) {
-        addToDatabaseQueue(filename)
-          .fail(logError)
-          .fin(processQueue);
-      } else {
-        processQueue();
-      }
-    }
+    addToQueue(filename)
+      .fail(logError)
+      .fin(processQueue);
   }
 };
 

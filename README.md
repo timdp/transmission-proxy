@@ -9,10 +9,8 @@ One example is [showRSS](http://showrss.info/).
 
 The app comes ready for deployment on [Heroku](http://heroku.com/), but being a
 standard [node.js](http://nodejs.org/) app, it can be run pretty much anywhere.
-
-See `config.json.example` for configuration information.
-
-To use PostgreSQL support, provision a Heroku database with this schema:
+It requires a [PostgreSQL](http://www.postgresql.org/) database with the
+following schema:
 
 ```sql
 CREATE TABLE "queue" (
@@ -20,6 +18,8 @@ CREATE TABLE "queue" (
   PRIMARY KEY ("filename")
 );
 ```
+
+See `config.json.example` for configuration information.
 
 Author
 ------
