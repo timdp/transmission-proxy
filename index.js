@@ -89,6 +89,15 @@ var addURL = function(filename) {
   });
 };
 
+var getAddURLPromise = function(filename) {
+  return function() {
+    return addURL(filename)
+      .fail(function(err) {
+        throw new Error('Failed to add "' + filename + '": ' + err);
+      });
+  };
+};
+
 var processQueue = function() {
   if (retryTimeout !== null) {
     clearTimeout(retryTimeout);
@@ -99,21 +108,27 @@ var processQueue = function() {
   }
   processingQueue = true;
   var succeeded = {};
+  var promise;
+  if (useDB)  {
+    promise = retrieveDatabaseQueue()
+      .then(function(dbQueue) {
+        queue = dbQueue;
+      })
+      .fail(logError);
+  } else {
+    promise = q();
+  }
   queue.reduce(function(prev, filename) {
-    return prev.then(function() {
-      return addURL(filename)
-        .then(function() {
-          logfmt.log({
-            result: 'added',
-            filename: filename
-          });
-          succeeded[filename] = true;
-        })
-        .fail(function(err) {
-          throw new Error('Failed to add "' + filename + '": ' + err);
+    var addURLPromise = getAddURLPromise(filename)
+      .then(function() {
+        logfmt.log({
+          result: 'added',
+          filename: filename
         });
-    });
-  }, q())
+        succeeded[filename] = true;
+      });
+    return prev.then(addURLPromise);
+  }, promise)
   .then(function() {
     var succeededNames = Object.keys(succeeded);
     if (succeededNames.length) {
@@ -227,17 +242,4 @@ app.all(config.transmission.url, authenticate, function(req, res) {
   }
 });
 
-var listen = function() {
-  app.listen(process.env.PORT || 8080);
-};
-
-if (useDB) {
-  retrieveDatabaseQueue()
-    .then(function(retrievedQueue) {
-      queue = retrievedQueue;
-    })
-    .fail(logError)
-    .fin(listen);
-} else {
-  listen();
-}
+app.listen(process.env.PORT || 8080);
