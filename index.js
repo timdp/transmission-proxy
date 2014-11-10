@@ -39,9 +39,8 @@ var processQueue = function() {
     return;
   }
   processingQueue = true;
-  var filenames = queue.slice();
-  queue = [];
-  filenames.reduce(function(prev, filename) {
+  var succeeded = {};
+  queue.reduce(function(prev, filename) {
     return prev.then(function() {
       return addURL(filename)
         .then(function() {
@@ -49,18 +48,20 @@ var processQueue = function() {
             result: 'added',
             filename: filename
           });
+          succeeded[filename] = true;
         })
         .fail(function(err) {
-          logfmt.log({
-            result: 'failed',
-            filename: filename,
-            error: err
-          });
-          queue.push(filename);
+          throw new Error('Failed to add "' + filename + '": ' + err);
         });
     });
   }, q())
+    .fail(function(err) {
+      logfmt.error(err);
+    })
     .fin(function() {
+      queue = queue.filter(function(filename) {
+        return !succeeded[filename];
+      });
       logfmt.log({
         remaining: queue.length
       });
