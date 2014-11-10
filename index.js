@@ -66,7 +66,8 @@ var processQueue = function() {
         remaining: queue.length
       });
       if (queue.length) {
-        retryTimeout = setTimeout(processQueue, (config.retry_after || 5) * 1000);
+        retryTimeout = setTimeout(processQueue,
+          (config.retry_after || 5 * 60) * 1000);
       }
       processingQueue = false;
     });
