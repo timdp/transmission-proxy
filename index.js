@@ -9,9 +9,11 @@ var q = require('q');
 var express = require('express');
 var logfmt = require('logfmt');
 var auth = require('http-auth');
+var pg = require('pg');
 var randomstring = require('randomstring');
 
 var config = require('./config.json');
+var useDB = !!process.env.DATABASE_URL;
 
 var queue = [];
 var processingQueue = false;
@@ -19,6 +21,63 @@ var retryTimeout = null;
 
 var transmission = new Transmission(config.transmission);
 var boundAddUrl = q.nbind(transmission.addUrl, transmission);
+
+var logError = function(err) {
+  logfmt.error(err);
+};
+
+var connectToDatabase = function() {
+  logfmt.log({
+    action: 'connect',
+    database_url: process.env.DATABASE_URL
+  });
+  return q.ninvoke(pg, 'connect', process.env.DATABASE_URL);
+};
+
+var query = function(sql, params) {
+  logfmt.log({
+    action: 'query',
+    query: sql,
+    params: params
+  });
+  var onDone = null;
+  return connectToDatabase()
+    .spread(function(client, done) {
+      onDone = done;
+      var args = [sql];
+      if (params && params.length) {
+        args.push(params);
+      }
+      return q.npost(client, 'query', args);
+    })
+    .then(function(res) {
+      onDone();
+      return res.rows;
+    });
+};
+
+var retrieveDatabaseQueue = function() {
+  var sql = 'SELECT filename FROM queue';
+  return query(sql)
+    .then(function(rows) {
+      return rows.map(function(row) {
+        return row.filename;
+      });
+    });
+};
+
+var addToDatabaseQueue = function(filename) {
+  var sql = 'INSERT INTO queue (filename) VALUES ($1)';
+  return query(sql, [filename]);
+};
+
+var removeFromDatabaseQueue = function(filenames) {
+  var ph = filenames.map(function(filename, idx) {
+    return '$' + (idx + 1);
+  }).join(',');
+  var sql = 'DELETE FROM queue WHERE filename IN (' + ph + ')';
+  return query(sql, filenames);
+};
 
 var addURL = function(filename) {
   logfmt.log({
@@ -55,33 +114,52 @@ var processQueue = function() {
         });
     });
   }, q())
-    .fail(function(err) {
-      logfmt.error(err);
-    })
-    .fin(function() {
+  .then(function() {
+    var succeededNames = Object.keys(succeeded);
+    if (succeededNames.length) {
       queue = queue.filter(function(filename) {
-        return !succeeded[filename];
+        return succeeded[filename];
       });
-      logfmt.log({
-        remaining: queue.length
-      });
-      if (queue.length) {
-        retryTimeout = setTimeout(processQueue,
-          (config.retry_after || 5 * 60) * 1000);
-      }
-      processingQueue = false;
+    }
+    return succeededNames;
+  })
+  .then(function(succeededNames) {
+    if (!succeededNames.length || !useDB) {
+      return;
+    }
+    return removeFromDatabaseQueue(succeededNames);
+  })
+  .fail(logError)
+  .fin(function() {
+    logfmt.log({
+      remaining: queue.length
     });
+    if (queue.length) {
+      var time = (config.retry_after || 5 * 60) * 1000;
+      retryTimeout = setTimeout(processQueue, time);
+    }
+    processingQueue = false;
+  });
 };
 
 var processAddTorrent = function(body) {
   if (typeof body.arguments === 'object' &&
       typeof body.arguments.filename === 'string') {
+    var filename = body.arguments.filename;
     logfmt.log({
       action: 'enqueue',
-      filename: body.arguments.filename
+      filename: filename
     });
-    queue.push(body.arguments.filename);
-    processQueue();
+    if (queue.indexOf(filename) < 0) {
+      queue.push(filename);
+      if (useDB) {
+        addToDatabaseQueue(filename)
+          .fail(logError)
+          .fin(processQueue);
+      } else {
+        processQueue();
+      }
+    }
   }
 };
 
@@ -149,4 +227,17 @@ app.all(config.transmission.url, authenticate, function(req, res) {
   }
 });
 
-app.listen(process.env.PORT || 8080);
+var listen = function() {
+  app.listen(process.env.PORT || 8080);
+};
+
+if (useDB) {
+  retrieveDatabaseQueue()
+    .then(function(retrievedQueue) {
+      queue = retrievedQueue;
+    })
+    .fail(logError)
+    .fin(listen);
+} else {
+  listen();
+}

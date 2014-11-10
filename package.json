@@ -16,6 +16,7 @@
     "http-auth": "^2.2.0",
     "logfmt": "^1.2.0",
     "newrelic": "^1.13.2",
+    "pg": "^3.6.2",
     "q": "^1.1.0",
     "randomstring": "^1.0.3",
     "transmission": "^0.4.1"
