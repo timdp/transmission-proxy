@@ -110,18 +110,17 @@ var processQueue = function() {
   }
   processingQueue = true;
   var succeeded = [];
+  var onSuccess = function(filename) {
+    logfmt.log({
+      result: 'added',
+      filename: filename
+    });
+    succeeded.push(filename);
+  };
   retrieveQueue()
   .then(function(queue) {
     return queue.reduce(function(prev, filename) {
-      var promise = getAddToTransmissionPromise(filename)
-        .then(function() {
-          logfmt.log({
-            result: 'added',
-            filename: filename
-          });
-          succeeded.push(filename);
-        });
-      return prev.then(promise);
+      return prev.then(getAddToTransmissionPromise(filename)).then(onSuccess);
     }, q());
   })
   .then(function() {
