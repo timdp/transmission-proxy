@@ -110,23 +110,24 @@ var processQueue = function() {
   }
   processingQueue = true;
   var succeeded = [];
-  var onSuccess = function(filename) {
-    logfmt.log({
-      result: 'added',
-      filename: filename
-    });
-    succeeded.push(filename);
-  };
   retrieveQueue()
   .then(function(queue) {
-    return queue.reduce(function(prev, filename) {
-      return prev.then(getAddToTransmissionPromise(filename)).then(onSuccess);
+    return queue.reduce(function(promise, filename) {
+      return promise
+        .then(getAddToTransmissionPromise(filename))
+        .then(function() {
+          logfmt.log({
+            result: 'added',
+            filename: filename
+          });
+          succeeded.push(filename);
+        });
     }, q());
   })
+  .fail(logError)
   .then(function() {
-    return succeeded;
+    return removeFromQueue(succeeded);
   })
-  .then(removeFromQueue)
   .fail(logError)
   .fin(function() {
     var time = (config.retry_after || 5 * 60) * 1000;
