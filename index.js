@@ -14,13 +14,19 @@ var randomstring = require('randomstring');
 
 var config = require('./config.json');
 
-var processingQueue = false;
+var lastError = null;
+var queueProcessingStarted = null;
+var queueProcessingTime = -1;
 var retryTimeout = null;
 
 var transmission = new Transmission(config.transmission);
 var boundAddUrl = q.nbind(transmission.addUrl, transmission);
 
 var logError = function(err) {
+  lastError = {
+    time: new Date(),
+    error: err
+  };
   logfmt.error(err);
 };
 
@@ -105,10 +111,10 @@ var processQueue = function() {
     clearTimeout(retryTimeout);
     retryTimeout = null;
   }
-  if (processingQueue) {
+  if (queueProcessingStarted !== null) {
     return;
   }
-  processingQueue = true;
+  queueProcessingStarted = new Date();
   var succeeded = [];
   retrieveQueue()
   .then(function(queue) {
@@ -130,9 +136,11 @@ var processQueue = function() {
   })
   .fail(logError)
   .fin(function() {
+    var endTime = new Date();
+    queueProcessingTime = endTime - queueProcessingStarted;
     var time = (config.retry_after || 5 * 60) * 1000;
     retryTimeout = setTimeout(processQueue, time);
-    processingQueue = false;
+    queueProcessingStarted = null;
   });
 };
 
@@ -192,6 +200,24 @@ app.use(function(req, res, next) {
 
 app.all('/', function(req, res) {
   res.send('It works!');
+});
+
+app.get('/status', function(req, res, next) {
+  retrieveQueue()
+  .then(function(queue) {
+      var lines = [];
+      lines.push('Last processing time: ' + (queueProcessingTime < 0 ? 'none' :
+        (queueProcessingTime / 1000).toFixed(2) + ' seconds'));
+      lines.push('Last error: ' + (lastError === null ? 'none' :
+        '[' + lastError.time + '] ' + lastError.error));
+      lines.push('Pending torrents: ' + queue.length);
+      queue.forEach(function(filename) {
+        lines.push('- ' + filename);
+      });
+      res.set('Content-Type', 'text/plain');
+      res.send(lines.join('\n'));
+  })
+  .fail(next);
 });
 
 app.all(config.transmission.url, authenticate, function(req, res) {
