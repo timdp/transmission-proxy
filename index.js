@@ -202,7 +202,7 @@ app.all('/', function(req, res) {
   res.send('It works!');
 });
 
-app.get('/status', function(req, res, next) {
+app.get('/status', authenticate, function(req, res, next) {
   retrieveQueue()
   .then(function(queue) {
       var lines = [];
