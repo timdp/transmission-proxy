@@ -14,6 +14,8 @@ var randomstring = require('randomstring');
 
 var config = require('./config.json');
 
+var startTime = new Date();
+var lastAdd = null;
 var lastError = null;
 var queueProcessingStarted = null;
 var queueProcessingTime = -1;
@@ -148,6 +150,10 @@ var processAddTorrent = function(body) {
   if (typeof body.arguments === 'object' &&
       typeof body.arguments.filename === 'string') {
     var filename = body.arguments.filename;
+    lastAdd = {
+      time: new Date(),
+      filename: filename
+    };
     logfmt.log({
       action: 'enqueue',
       filename: filename
@@ -206,8 +212,11 @@ app.get('/status', authenticate, function(req, res, next) {
   retrieveQueue()
   .then(function(queue) {
       var lines = [];
+      lines.push('Started: ' + startTime);
       lines.push('Last processing time: ' + (queueProcessingTime < 0 ? 'none' :
         (queueProcessingTime / 1000).toFixed(2) + ' seconds'));
+      lines.push('Last add: ' + (lastAdd === null ? 'none' :
+        '[' + lastAdd.time + '] ' + lastAdd.filename));
       lines.push('Last error: ' + (lastError === null ? 'none' :
         '[' + lastError.time + '] ' + lastError.error));
       lines.push('Pending torrents: ' + queue.length);
