@@ -5,7 +5,7 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 }
 
 var Transmission = require('transmission');
-var q = require('q');
+var Q = require('q');
 var express = require('express');
 var logfmt = require('logfmt');
 var auth = require('http-auth');
@@ -22,7 +22,7 @@ var queueProcessingTime = -1;
 var retryTimeout = null;
 
 var transmission = new Transmission(config.transmission);
-var boundAddUrl = q.nbind(transmission.addUrl, transmission);
+var boundAddUrl = Q.nbind(transmission.addUrl, transmission);
 
 var logError = function(err) {
   lastError = {
@@ -38,7 +38,7 @@ var connectToDatabase = function() {
     action: 'connect',
     database_url: url
   });
-  return q.ninvoke(pg, 'connect', url);
+  return Q.ninvoke(pg, 'connect', url);
 };
 
 var query = function(sql, params) {
@@ -55,7 +55,7 @@ var query = function(sql, params) {
       if (params && params.length) {
         args.push(params);
       }
-      return q.npost(client, 'query', args);
+      return Q.npost(client, 'query', args);
     })
     .then(function(res) {
       onDone();
@@ -130,7 +130,7 @@ var processQueue = function() {
           });
           succeeded.push(filename);
         });
-    }, q());
+    }, Q());
   })
   .fail(logError)
   .then(function() {
