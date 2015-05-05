@@ -12,6 +12,7 @@
     "node": "0.10.x"
   },
   "dependencies": {
+    "body-parser": "^1.12.3",
     "express": "^4.12.2",
     "http-auth": "^2.2.0",
     "logfmt": "^1.2.0",

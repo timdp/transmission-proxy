@@ -7,6 +7,7 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 var Transmission = require('transmission')
 var Q = require('q')
 var express = require('express')
+var bodyParser = require('body-parser')
 var logfmt = require('logfmt')
 var auth = require('http-auth')
 var pg = require('pg')
@@ -172,37 +173,15 @@ var assignSessionID = function (res) {
     '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>')
 }
 
-var authenticate = auth.connect(auth.basic({
-  realm: 'Transmission'
-},
+var authenticate = auth.connect(auth.basic(
+  {realm: 'Transmission'},
   function (username, password, callback) {
     callback(username === config.username && password === config.password)
   }))
 
 var app = express()
-
 app.use(logfmt.requestLogger())
-
-app.use(function (req, res, next) {
-  req.rawBody = ''
-  req.on('data', function (data) {
-    req.rawBody += data
-  })
-  req.on('end', function () {
-    if (req.rawBody.length === 0) {
-      req.body = {}
-      next()
-    } else {
-      try {
-        req.body = JSON.parse(req.rawBody)
-      } catch (e) {
-        req.body = {}
-      } finally {
-        next()
-      }
-    }
-  })
-})
+app.use(bodyParser.json())
 
 app.all('/', function (req, res) {
   res.send('It works!')
