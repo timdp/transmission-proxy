@@ -1,5 +1,4 @@
-transmission-proxy
-==================
+# Transmission Proxy [![JavaScript Standard Style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg)](https://github.com/feross/standard)
 
 A simple proxy server for the Transmission RPC API.
 
@@ -21,15 +20,13 @@ CREATE TABLE "queue" (
 
 See `config.json.example` for configuration information.
 
-Author
-------
+## Author
 
-[Tim De Pauw](http://tmdpw.eu/)
+[Tim De Pauw](https://tmdpw.eu/)
 
-License
--------
+## License
 
-Copyright &copy; 2014 Tim De Pauw
+Copyright &copy; 2015 Tim De Pauw
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

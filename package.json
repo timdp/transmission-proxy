@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js"
   },
-  "author": "Tim De Pauw <hi@tmdpw.eu> (http://tmdpw.eu/)",
+  "author": "Tim De Pauw <hi@tmdpw.eu> (https://tmdpw.eu/)",
   "license": "MIT",
   "engines": {
     "node": "0.10.x"
