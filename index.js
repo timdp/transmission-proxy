@@ -179,10 +179,10 @@ var authenticate = auth.connect(auth.basic(
     callback(username === config.username && password === config.password)
   }))
 
+var parseJson = bodyParser.json({type: '*/*'})
+
 var app = express()
 app.use(logfmt.requestLogger())
-app.use(bodyParser.json())
-
 app.all('/', function (req, res) {
   res.send('It works!')
 })
@@ -208,7 +208,7 @@ app.get('/status', authenticate, function (req, res, next) {
     .fail(next)
 })
 
-app.all(config.transmission.url, authenticate, function (req, res) {
+app.all(config.transmission.url, authenticate, parseJson, function (req, res) {
   res.set('Server', 'Transmission')
   var sessionID = req.get('X-Transmission-Session-Id')
   if (typeof sessionID === 'undefined') {
