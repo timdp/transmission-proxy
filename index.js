@@ -4,109 +4,29 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
   require('newrelic')
 }
 
-var Transmission = require('transmission')
-var Q = require('q')
 var express = require('express')
 var bodyParser = require('body-parser')
 var logfmt = require('logfmt')
 var auth = require('http-auth')
-var pg = require('pg')
 var randomstring = require('randomstring')
 
 var config = require('./config.json')
+config.retry_after = config.retry_after || 5 * 60
 
-var startTime = new Date()
-var lastAdd = null
-var lastError = null
+var context = {config: config}
+var db = require('./lib/db-pg').call(context)
+var transmission = require('./lib/transmission').call(context)
+
+var status = {startTime: new Date()}
 var queueProcessingStarted = null
-var queueProcessingTime = -1
 var retryTimeout = null
 
-var transmission = new Transmission(config.transmission)
-var boundAddUrl = Q.nbind(transmission.addUrl, transmission)
-
 var logError = function (err) {
-  lastError = {
+  status.lastError = {
     time: new Date(),
     error: err
   }
   logfmt.error(err)
-}
-
-var connectToDatabase = function () {
-  var url = process.env.DATABASE_URL || config.database_url
-  logfmt.log({
-    action: 'connect',
-    database_url: url
-  })
-  return Q.ninvoke(pg, 'connect', url)
-}
-
-var query = function (sql, params) {
-  logfmt.log({
-    action: 'query',
-    query: sql,
-    params: params
-  })
-  var onDone = null
-  return connectToDatabase()
-    .spread(function (client, done) {
-      onDone = done
-      var args = [sql]
-      if (params && params.length) {
-        args.push(params)
-      }
-      return Q.npost(client, 'query', args)
-    })
-    .then(function (res) {
-      onDone()
-      return res.rows
-    })
-}
-
-var retrieveQueue = function () {
-  var sql = 'SELECT filename FROM queue'
-  return query(sql)
-    .then(function (rows) {
-      return rows.map(function (row) {
-        return row.filename
-      })
-    })
-}
-
-var addToQueue = function (filename) {
-  var sql = 'INSERT INTO queue (filename) VALUES ($1)'
-  return query(sql, [filename])
-}
-
-var removeFromQueue = function (filenames) {
-  if (!filenames.length) {
-    return
-  }
-  var ph = filenames.map(function (filename, idx) {
-    return '$' + (idx + 1)
-  }).join(',')
-  var sql = 'DELETE FROM queue WHERE filename IN (' + ph + ')'
-  return query(sql, filenames)
-}
-
-var addToTransmission = function (filename) {
-  logfmt.log({
-    action: 'add',
-    filename: filename
-  })
-  return boundAddUrl(filename, {
-    paused: config.add_paused
-  })
-}
-
-var getAddToTransmissionPromise = function (filename) {
-  return function () {
-    return addToTransmission(filename)
-      .fail(function (err) {
-        throw new Error('Failed to add "' + filename + '": ' + err)
-      })
-  }
 }
 
 var processQueue = function () {
@@ -119,50 +39,38 @@ var processQueue = function () {
   }
   queueProcessingStarted = new Date()
   var succeeded = []
-  retrieveQueue()
+  var onSuccess = function (filename) {
+    succeeded.push(filename)
+  }
+  db.getQueue()
     .then(function (queue) {
-      return queue.reduce(function (promise, filename) {
-        return promise
-          .then(getAddToTransmissionPromise(filename))
-          .then(function () {
-            logfmt.log({
-              result: 'added',
-              filename: filename
-            })
-            succeeded.push(filename)
-          })
-      }, Q())
+      return transmission.addAll(queue, onSuccess)
     })
     .fail(logError)
     .then(function () {
-      return removeFromQueue(succeeded)
+      return db.dequeue(succeeded)
     })
     .fail(logError)
     .fin(function () {
       var endTime = new Date()
-      queueProcessingTime = endTime - queueProcessingStarted
-      var time = (config.retry_after || 5 * 60) * 1000
-      retryTimeout = setTimeout(processQueue, time)
+      status.queueProcessingTime = endTime - queueProcessingStarted
       queueProcessingStarted = null
+      retryTimeout = setTimeout(processQueue, config.retry_after * 1000)
     })
 }
 
-var processAddTorrent = function (body) {
-  if (typeof body.arguments === 'object' &&
-    typeof body.arguments.filename === 'string') {
-    var filename = body.arguments.filename
-    lastAdd = {
-      time: new Date(),
-      filename: filename
-    }
-    logfmt.log({
-      action: 'enqueue',
-      filename: filename
-    })
-    addToQueue(filename)
-      .fail(logError)
-      .fin(processQueue)
+var addTorrent = function (filename) {
+  status.lastAdd = {
+    time: new Date(),
+    filename: filename
   }
+  logfmt.log({
+    action: 'enqueue',
+    filename: filename
+  })
+  db.enqueue(filename)
+    .fail(logError)
+    .fin(processQueue)
 }
 
 var assignSessionID = function (res) {
@@ -173,59 +81,65 @@ var assignSessionID = function (res) {
     '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>')
 }
 
-var authenticate = auth.connect(auth.basic(
-  {realm: 'Transmission'},
-  function (username, password, callback) {
-    callback(username === config.username && password === config.password)
-  }))
-
-var parseJson = bodyParser.json({type: '*/*'})
-
-var app = express()
-app.use(logfmt.requestLogger())
-app.all('/', function (req, res) {
-  res.send('It works!')
-})
-
-app.get('/status', authenticate, function (req, res, next) {
-  retrieveQueue()
-    .then(function (queue) {
-      var lines = []
-      lines.push('Started: ' + startTime)
-      lines.push('Last processing time: ' + (queueProcessingTime < 0 ? 'none' :
-          (queueProcessingTime / 1000).toFixed(2) + ' seconds'))
-      lines.push('Last add: ' + (lastAdd === null ? 'none' :
-          '[' + lastAdd.time + '] ' + lastAdd.filename))
-      lines.push('Last error: ' + (lastError === null ? 'none' :
-          '[' + lastError.time + '] ' + lastError.error))
-      lines.push('Pending torrents: ' + queue.length)
-      queue.forEach(function (filename) {
-        lines.push('- ' + filename)
-      })
-      res.set('Content-Type', 'text/plain')
-      res.send(lines.join('\n'))
-    })
-    .fail(next)
-})
-
-app.all(config.transmission.url, authenticate, parseJson, function (req, res) {
+var manageTransmissionSession = function (req, res, next) {
   res.set('Server', 'Transmission')
   var sessionID = req.get('X-Transmission-Session-Id')
   if (typeof sessionID === 'undefined') {
     assignSessionID(res)
   } else {
     res.set('X-Transmission-Session-Id', sessionID)
-    if (typeof req.body === 'object' && req.body.method === 'torrent-add') {
-      processAddTorrent(req.body)
-      res.json({
-        success: true
-      })
-    } else {
-      res.json({
-        success: false
-      })
-    }
+    next()
   }
+}
+
+var processTransmissionRequest = function (req, res, method, args) {
+  var valid = (method === 'torrent-add' &&
+    args !== null && typeof args === 'object' &&
+    typeof args.filename === 'string')
+  if (valid) {
+    addTorrent(args.filename)
+  }
+  res.json({success: valid})
+}
+
+var authenticate = auth.connect(auth.basic(
+  {realm: 'Transmission'},
+  function (username, password, callback) {
+    callback(username === config.username && password === config.password)
+  }))
+
+var app = express()
+app.use(logfmt.requestLogger())
+app.set('views', './views')
+app.set('view engine', 'jade')
+
+app.get('/', function (req, res) {
+  res.render('index')
 })
+
+app.get('/status',
+  authenticate,
+  function (req, res, next) {
+    db.getQueue()
+      .then(function (queue) {
+        res.render('status', {status: status, queue: queue})
+      })
+      .fail(next)
+  })
+
+app.get(config.transmission.url,
+  authenticate,
+  manageTransmissionSession,
+  function (req, res) {
+    processTransmissionRequest(req, res, req.params.method, req.params)
+  })
+
+app.post(config.transmission.url,
+  authenticate,
+  manageTransmissionSession,
+  bodyParser.json({type: '*/*'}),
+  function (req, res) {
+    processTransmissionRequest(req, res, req.body.method, req.body.arguments)
+  })
 
 app.listen(process.env.PORT || 8080)

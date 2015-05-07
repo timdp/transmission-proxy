@@ -1,0 +1,35 @@
+extends ./layout.jade
+
+block vars
+  - var title = 'Status'
+
+block content
+  h3 Key Stats
+  ul
+    li Started: #{''}
+      strong #{status.startTime}
+    li Last processing time: #{''}
+      if status.queueProcessingTime
+        strong #{status.queueProcessingTime} ms
+      else
+        strong none
+    li Last add: #{''}
+      if status.lastAdd
+        strong #{status.lastAdd.filename}
+        | (#{status.lastAdd.time})
+      else
+        strong none
+    li Last error: #{''}
+      if status.lastError
+        strong #{status.lastError.error}
+        | (#{status.lastError.time})
+      else
+        strong none
+  h3 Pending Torrents
+  if queue.length
+    ol
+      each filename in queue
+        li
+          a(href=filename) #{filename}
+  else
+    p No pending torrents

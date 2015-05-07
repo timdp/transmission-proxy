@@ -1,0 +1,19 @@
+doctype html
+html
+  block vars
+  head
+    meta(charset='utf-8')
+    if title
+      title #{title} &ndash; Transmission Proxy
+    else
+      title Transmission Proxy
+  body
+    if title
+      h1 #{title}
+    block content
+    footer
+      hr
+      p
+        em Powered by #{''}
+          a(href='https://github.com/timdp/transmission-proxy', target='_blank')
+            | Transmission Proxy
