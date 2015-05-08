@@ -113,6 +113,7 @@ var app = express()
 app.use(logfmt.requestLogger())
 app.set('views', './views')
 app.set('view engine', 'jade')
+app.locals.timeago = timeago
 
 app.get('/', function (req, res) {
   res.render('index')
@@ -123,7 +124,7 @@ app.get('/status',
   function (req, res, next) {
     db.getQueue()
       .then(function (queue) {
-        res.render('status', {status: status, queue: queue, timeago: timeago})
+        res.render('status', {status: status, queue: queue})
       })
       .fail(next)
   })
