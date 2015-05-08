@@ -4,6 +4,8 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
   require('newrelic')
 }
 
+var pkg = require('./package.json')
+
 var express = require('express')
 var bodyParser = require('body-parser')
 var logfmt = require('logfmt')
@@ -113,6 +115,7 @@ var app = express()
 app.use(logfmt.requestLogger())
 app.set('views', './views')
 app.set('view engine', 'jade')
+app.locals.version = pkg.version
 app.locals.timeago = timeago
 
 app.get('/', function (req, res) {
