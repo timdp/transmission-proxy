@@ -13,7 +13,7 @@ block content
         strong #{status.queueProcessingTime} ms
       else
         strong none
-    li Last add:
+    li Last add: #{''}
       if status.lastAdd
         a(href=status.lastAdd.filename)
           strong #{status.lastAdd.filename}
