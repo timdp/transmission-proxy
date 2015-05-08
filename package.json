@@ -21,6 +21,7 @@
     "pg": "^3.6.2",
     "q": "^1.2.0",
     "randomstring": "^1.0.3",
+    "timeago": "^0.2.0",
     "transmission": "^0.4.2"
   }
 }

@@ -7,7 +7,7 @@ block content
   h3 Key Stats
   ul
     li Started: #{''}
-      strong #{status.startTime}
+      strong #{timeago(status.startTime)}
     li Last processing time: #{''}
       if status.queueProcessingTime
         strong #{status.queueProcessingTime} ms
@@ -17,13 +17,13 @@ block content
       if status.lastAdd
         a(href=status.lastAdd.filename)
           strong #{status.lastAdd.filename}
-        | #{''} (#{status.lastAdd.time})
+        | #{''} (#{timeago(status.lastAdd.time)})
       else
         strong none
     li Last error: #{''}
       if status.lastError
         strong #{status.lastError.error}
-        | #{''} (#{status.lastError.time})
+        | #{''} (#{timeago(status.lastError.time)})
       else
         strong none
   h3 Pending Torrents

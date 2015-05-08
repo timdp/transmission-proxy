@@ -9,6 +9,7 @@ var bodyParser = require('body-parser')
 var logfmt = require('logfmt')
 var auth = require('http-auth')
 var randomstring = require('randomstring')
+var timeago = require('timeago')
 
 var config = require('./config.json')
 config.retry_after = config.retry_after || 5 * 60
@@ -122,7 +123,7 @@ app.get('/status',
   function (req, res, next) {
     db.getQueue()
       .then(function (queue) {
-        res.render('status', {status: status, queue: queue})
+        res.render('status', {status: status, queue: queue, timeago: timeago})
       })
       .fail(next)
   })
