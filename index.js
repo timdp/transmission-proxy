@@ -147,4 +147,12 @@ app.post(config.transmission.url,
     processTransmissionRequest(req, res, req.body.method, req.body.arguments)
   })
 
-app.listen(process.env.PORT || 8080)
+var port = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 8080
+var addr = process.env.OPENSHIFT_NODEJS_IP
+app.listen(port, addr, function () {
+  logfmt.log({
+    action: 'start',
+    port: port,
+    address: addr
+  })
+})
