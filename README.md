@@ -6,10 +6,12 @@ The proxy only allows the `torrent-add` method. This makes it ideal for use with
 external services that are only allowed to push new torrents to your daemon.
 One example is [showRSS](http://showrss.info/).
 
-The app comes ready for deployment on [Heroku](http://heroku.com/), but being a
-standard [node.js](http://nodejs.org/) app, it can be run pretty much anywhere.
-It requires a [PostgreSQL](http://www.postgresql.org/) database with the
-following schema:
+The app comes ready for deployment on [Heroku](https://www.heroku.com/) as well
+as [OpenShift](https://www.openshift.com/). However, being a standard
+[node.js](http://nodejs.org/) app, it can be run pretty much anywhere.
+
+For storage of its queue, the app requires a
+[PostgreSQL](http://www.postgresql.org/) database with the following schema:
 
 ```sql
 CREATE TABLE "queue" (
