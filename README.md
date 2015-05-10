@@ -15,8 +15,9 @@ For storage of its queue, the app requires a
 
 ```sql
 CREATE TABLE "queue" (
+  "id" SERIAL PRIMARY KEY,
   "filename" TEXT NOT NULL,
-  PRIMARY KEY ("filename")
+  "time" TIMESTAMP WITH TIME ZONE NOT NULL
 );
 ```
 

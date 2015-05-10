@@ -42,12 +42,20 @@ var processQueue = function () {
   }
   queueProcessingStarted = new Date()
   var succeeded = []
-  var onSuccess = function (filename) {
-    succeeded.push(filename)
+  var notify = function (err, record) {
+    if (err) {
+      logfmt.error(new Error('Failed to add "' + record.filename + '": ' + err))
+    } else {
+      logfmt.log({
+        result: 'added',
+        filename: record.filename
+      })
+      succeeded.push(record.id)
+    }
   }
   db.getQueue()
     .then(function (queue) {
-      return transmission.addAll(queue, onSuccess)
+      return transmission.addAll(queue, notify)
     })
     .fail(logError)
     .then(function () {

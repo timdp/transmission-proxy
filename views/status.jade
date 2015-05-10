@@ -33,8 +33,11 @@ block content
   h3 Pending Torrents
   if queue.length
     ol
-      each filename in queue
+      each entry in queue
         li
-          a(href=filename) #{filename}
+          a(href=entry.filename) #{entry.filename}
+          | #{''} (
+          span(title=entry.time) #{timeago(entry.time)}
+          | )
   else
     p No pending torrents
