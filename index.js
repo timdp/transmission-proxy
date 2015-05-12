@@ -12,12 +12,15 @@ var logfmt = require('logfmt')
 var auth = require('http-auth')
 var randomstring = require('randomstring')
 var timeago = require('timeago')
+var defaults = require('defaults')
 
-var config = require('./config.json')
-config.retry_after = config.retry_after || 5 * 60
+var config = defaults(require('./config.json'), {
+  retry_after: 5 * 60,
+  storage_type: 'postgresql'
+})
 
 var context = {config: config}
-var db = require('./lib/db-pg').call(context)
+var storage = require('./lib/storage/' + config.storage_type).call(context)
 var transmission = require('./lib/transmission').call(context)
 
 var status = {startTime: new Date()}
@@ -53,13 +56,13 @@ var processQueue = function () {
       succeeded.push(record.id)
     }
   }
-  db.getQueue()
+  storage.getQueue()
     .then(function (queue) {
       return transmission.addAll(queue, notify)
     })
     .fail(logError)
     .then(function () {
-      return db.dequeue(succeeded)
+      return storage.dequeue(succeeded)
     })
     .fail(logError)
     .fin(function () {
@@ -79,7 +82,7 @@ var addTorrent = function (filename) {
     action: 'enqueue',
     filename: filename
   })
-  db.enqueue(filename)
+  storage.enqueue(filename)
     .fail(logError)
     .fin(processQueue)
 }
@@ -133,7 +136,7 @@ app.get('/', function (req, res) {
 app.get('/status',
   authenticate,
   function (req, res, next) {
-    db.getQueue()
+    storage.getQueue()
       .then(function (queue) {
         res.render('status', {status: status, queue: queue})
       })
