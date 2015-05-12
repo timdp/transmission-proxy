@@ -47,7 +47,7 @@ var processQueue = function () {
   var succeeded = []
   var notify = function (err, record) {
     if (err) {
-      logfmt.error(new Error('Failed to add "' + record.filename + '": ' + err))
+      logError(new Error('Failed to add "' + record.filename + '": ' + err))
     } else {
       logfmt.log({
         result: 'added',
