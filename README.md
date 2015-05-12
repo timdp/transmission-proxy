@@ -10,18 +10,41 @@ The app comes ready for deployment on [Heroku](https://www.heroku.com/) as well
 as [OpenShift](https://www.openshift.com/). However, being a standard
 [node.js](http://nodejs.org/) app, it can be run pretty much anywhere.
 
-For storage of its queue, the app requires a
-[PostgreSQL](http://www.postgresql.org/) database with the following schema:
+## Configuration
 
-```sql
-CREATE TABLE "queue" (
-  "id" SERIAL PRIMARY KEY,
-  "filename" TEXT NOT NULL,
-  "time" TIMESTAMP WITH TIME ZONE NOT NULL
-);
-```
+In `config.json.example`, you will find a sample configuration to get you on
+your way. Just copy it to `config.json` and paste in your configuration.
 
-See `config.json.example` for configuration information.
+By default, the app's queue gets stored in memory. However, for improved
+robustness and scalability, it can also store it in a relational database.
+To enable this feature:
+
+1. Create a [PostgreSQL](http://www.postgresql.org/) database with the
+following schema:
+
+    ```sql
+    CREATE TABLE "queue" (
+      "id" SERIAL PRIMARY KEY,
+      "filename" TEXT NOT NULL,
+      "time" TIMESTAMP WITH TIME ZONE NOT NULL
+    );
+    ```
+
+2. Adapt `config.json` to connect to the database:
+
+    ```json
+    {
+      "storage": {
+        "type": "postgresql",
+        "postgresql": {
+          "database_url": "postgresql://USERNAME:PASSWORD@HOST:PORT"
+        }
+      }
+    }
+    ```
+
+    If you use Heroku or OpenShift's native PostgreSQL support, the database
+    URL will be automatically detected from the environment.
 
 ## Author
 

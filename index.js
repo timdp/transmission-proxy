@@ -16,11 +16,13 @@ var defaults = require('defaults')
 
 var config = defaults(require('./config.json'), {
   retry_after: 5 * 60,
-  storage_type: 'postgresql'
+  storage: {
+    type: 'memory'
+  }
 })
 
 var context = {config: config}
-var storage = require('./lib/storage/' + config.storage_type).call(context)
+var storage = require('./lib/storage/' + config.storage.type).call(context)
 var transmission = require('./lib/transmission').call(context)
 
 var status = {startTime: new Date()}
