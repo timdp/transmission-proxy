@@ -59,13 +59,13 @@ var processQueue = function () {
       succeeded.push(record.id)
     }
   }
-  Q(storage.getQueue())
+  Q.invoke(storage, 'getQueue')
     .then(function (queue) {
       return transmission.addAll(queue, notify)
     })
     .fail(logError)
     .then(function () {
-      return Q(storage.dequeue(succeeded))
+      return Q.invoke(storage, 'dequeue', succeeded)
     })
     .fail(logError)
     .fin(function () {
@@ -85,7 +85,7 @@ var addTorrent = function (filename) {
     action: 'enqueue',
     filename: filename
   })
-  Q(storage.enqueue(filename))
+  Q.invoke(storage, 'enqueue', filename)
     .fail(logError)
     .fin(processQueue)
 }
@@ -145,7 +145,7 @@ app.get('/ping', function (req, res) {
 app.get('/status',
   authenticate,
   function (req, res, next) {
-    Q(storage.getQueue())
+    Q.invoke(storage, 'getQueue')
       .then(function (queue) {
         res.render('status', {status: status, queue: queue})
       })
