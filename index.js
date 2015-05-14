@@ -6,6 +6,7 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
 
 var pkg = require('./package.json')
 
+var Q = require('q')
 var express = require('express')
 var bodyParser = require('body-parser')
 var logfmt = require('logfmt')
@@ -58,13 +59,13 @@ var processQueue = function () {
       succeeded.push(record.id)
     }
   }
-  storage.getQueue()
+  Q(storage.getQueue())
     .then(function (queue) {
       return transmission.addAll(queue, notify)
     })
     .fail(logError)
     .then(function () {
-      return storage.dequeue(succeeded)
+      return Q(storage.dequeue(succeeded))
     })
     .fail(logError)
     .fin(function () {
@@ -84,7 +85,7 @@ var addTorrent = function (filename) {
     action: 'enqueue',
     filename: filename
   })
-  storage.enqueue(filename)
+  Q(storage.enqueue(filename))
     .fail(logError)
     .fin(processQueue)
 }
@@ -143,7 +144,7 @@ app.get('/ping', function (req, res) {
 app.get('/status',
   authenticate,
   function (req, res, next) {
-    storage.getQueue()
+    Q(storage.getQueue())
       .then(function (queue) {
         res.render('status', {status: status, queue: queue})
       })
