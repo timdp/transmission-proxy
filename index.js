@@ -92,10 +92,11 @@ var addTorrent = function (filename) {
 
 var assignSessionID = function (res) {
   var sessionID = randomstring.generate(48)
-  res.set('X-Transmission-Session-Id', sessionID)
-  res.set('Content-Type', 'text/html; charset=ISO-8859-1')
-  res.send('<h1>409: Conflict</h1>' +
-    '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>')
+  res.status(409)
+    .set('X-Transmission-Session-Id', sessionID)
+    .set('Content-Type', 'text/html; charset=ISO-8859-1')
+    .send('<h1>409: Conflict</h1>' +
+      '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>')
 }
 
 var manageTransmissionSession = function (req, res, next) {
