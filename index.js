@@ -135,6 +135,11 @@ app.get('/', function (req, res) {
   res.render('index')
 })
 
+app.get('/ping', function (req, res) {
+  res.set('Content-Type', 'text/plain')
+    .send('OK')
+})
+
 app.get('/status',
   authenticate,
   function (req, res, next) {
