@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cd $OPENSHIFT_REPO_DIR && npm install --loglevel error && npm prune
