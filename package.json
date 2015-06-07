@@ -1,6 +1,6 @@
 {
   "name": "transmission-proxy",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "A simple proxy server for the Transmission RPC API.",
   "main": "dist/index.js",
   "scripts": {
