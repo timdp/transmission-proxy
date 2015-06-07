@@ -7,7 +7,6 @@
     "start": "node dist/server.js"
   },
   "author": "Tim De Pauw <hi@tmdpw.eu> (https://tmdpw.eu/)",
-  "license": "MIT",
   "engines": {
     "node": ">=0.10.x"
   },
@@ -35,5 +34,18 @@
     "gulp-load-plugins": "^0.10.0",
     "gulp-plumber": "^1.0.1",
     "mkdirp": "^0.5.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/timdp/transmission-proxy"
+  },
+  "bugs": {
+    "url": "https://github.com/timdp/transmission-proxy/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://raw.githubusercontent.com/timdp/transmission-proxy/master/LICENSE"
+    }
+  ]
 }
