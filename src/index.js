@@ -11,7 +11,7 @@ import {EventEmitter} from 'events'
 import path from 'path'
 import TransmissionFacade from './lib/transmission-facade'
 
-const DEFAULT_CONFIG = {
+const defaultConfig = {
   username: 'admin',
   password: 'admin',
   transmission: {
@@ -34,7 +34,7 @@ class TransmissionProxy extends EventEmitter {
     this._router = Router()
     this._processingQueue = false
     this._retryTimeout = null
-    this._config = defaults(config, DEFAULT_CONFIG)
+    this._config = defaults(config, defaultConfig)
     this._transmission = new TransmissionFacade(this._config)
     this._initStorage()
     this._initAuth()
