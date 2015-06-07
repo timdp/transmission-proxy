@@ -46,6 +46,11 @@ following schema:
     If you use Heroku or OpenShift's native PostgreSQL support, the database
     URL will be automatically detected from the environment.
 
+## API
+
+API documentation is in the works. See `server.js` for example usage of the
+`transmission-proxy` module.
+
 ## Author
 
 [Tim De Pauw](https://tmdpw.eu/)
