@@ -126,8 +126,7 @@ TransmissionProxy.prototype._configureRoutes = function () {
     this._manageSession.bind(this),
     bodyParser.json({type: '*/*'}),
     function (req, res) {
-      this._processRequest(req, res,
-        req.body.method, req.body.arguments)
+      this._processRequest(req, res, req.body.method, req.body.arguments)
     }.bind(this))
 }
 
