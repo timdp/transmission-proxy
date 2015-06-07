@@ -2,10 +2,7 @@
 
 'use strict'
 
-if (process.env.NEW_RELIC_LICENSE_KEY) {
-  require('newrelic')
-}
-
+import './lib/newrelic'
 import Q from 'q'
 import express from 'express'
 import logfmt from 'logfmt'
