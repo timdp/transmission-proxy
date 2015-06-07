@@ -14,11 +14,11 @@ var TransmissionProxy = require('./')
 var pkg = require(path.join(__dirname, 'package.json'))
 var config = require(path.join(__dirname, 'config.json'))
 var addr = process.env.OPENSHIFT_IOJS_IP ||
-    process.env.OPENSHIFT_NODEJS_IP
+  process.env.OPENSHIFT_NODEJS_IP
 var port = process.env.OPENSHIFT_IOJS_PORT ||
-    process.env.OPENSHIFT_NODEJS_PORT ||
-    process.env.PORT ||
-    8080
+  process.env.OPENSHIFT_NODEJS_PORT ||
+  process.env.PORT ||
+  8080
 
 var status = {}
 var queueProcessingStarted = null
