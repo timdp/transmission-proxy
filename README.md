@@ -48,7 +48,7 @@ following schema:
 
 ## API
 
-API documentation is in the works. See `server.js` for example usage of the
+API documentation is in the works. See `src/server.js` for example usage of the
 `transmission-proxy` module.
 
 ## Author
