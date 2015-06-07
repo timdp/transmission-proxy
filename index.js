@@ -1,96 +1,137 @@
 'use strict'
 
-if (process.env.NEW_RELIC_LICENSE_KEY) {
-  require('newrelic')
-}
-
-var pkg = require('./package.json')
-
 var Q = require('q')
-var express = require('express')
+var Router = require('express').Router
 var bodyParser = require('body-parser')
-var logfmt = require('logfmt')
 var auth = require('http-auth')
 var randomstring = require('randomstring')
-var timeago = require('timeago')
 var defaults = require('defaults')
+var EventEmitter = require('events').EventEmitter
+var path = require('path')
+var util = require('util')
 
-var config = defaults(require('./config.json'), {
-  retry_after: 5 * 60,
+var DEFAULT_CONFIG = {
+  username: 'admin',
+  password: 'admin',
+  transmission: {
+    host: 'localhost',
+    port: 9091,
+    username: 'admin',
+    password: 'admin',
+    url: '/transmission/rpc'
+  },
   storage: {
     type: 'memory'
-  }
-})
-
-var context = {config: config}
-var storage = require('./lib/storage/' + config.storage.type).call(context)
-var transmission = require('./lib/transmission').call(context)
-
-var status = {startTime: new Date()}
-var queueProcessingStarted = null
-var retryTimeout = null
-
-var logError = function (err) {
-  status.lastError = {
-    time: new Date(),
-    error: err
-  }
-  logfmt.error(err)
+  },
+  add_paused: false,
+  retry_after: 5 * 60
 }
 
-var processQueue = function () {
-  if (retryTimeout !== null) {
-    clearTimeout(retryTimeout)
-    retryTimeout = null
+var TransmissionProxy = function (config) {
+  EventEmitter.call(this)
+  this._router = Router()
+  this._processingQueue = false
+  this._retryTimeout = null
+  this._config = defaults(config, DEFAULT_CONFIG)
+  this._initLibs()
+  this._initAuth()
+  this._configureRoutes()
+}
+util.inherits(TransmissionProxy, EventEmitter)
+
+TransmissionProxy.prototype.getRouter = function () {
+  return this._router
+}
+
+TransmissionProxy.prototype.getAuthenticationMiddleware = function () {
+  return this._authenticate
+}
+
+TransmissionProxy.prototype.addTorrent = function (filename) {
+  this.emit('addingTorrent', {filename: filename})
+  Q.invoke(this._storage, 'enqueue', filename)
+    .fail(this._handleError.bind(this))
+    .fin(this.processQueue.bind(this))
+}
+
+TransmissionProxy.prototype.getQueue = function () {
+  return this._storage.getQueue()
+}
+
+TransmissionProxy.prototype.processQueue = function () {
+  if (this._retryTimeout !== null) {
+    clearTimeout(this._retryTimeout)
+    this._retryTimeout = null
   }
-  if (queueProcessingStarted !== null) {
+  if (this._processingQueue) {
     return
   }
-  queueProcessingStarted = new Date()
+  this._processingQueue = true
+  this.emit('processingQueue')
   var succeeded = []
   var notify = function (err, record) {
     if (err) {
-      logError(new Error('Failed to add "' + record.filename + '": ' + err))
+      this._handleError(
+        new Error('Failed to add "' + record.filename + '": ' + err))
     } else {
-      logfmt.log({
-        result: 'added',
+      this.emit('addedTorrent', {
         filename: record.filename
       })
       succeeded.push(record.id)
     }
-  }
-  Q.invoke(storage, 'getQueue')
+  }.bind(this)
+  Q.invoke(this, 'getQueue')
     .then(function (queue) {
-      return transmission.addAll(queue, notify)
-    })
-    .fail(logError)
+      return this._transmission.addAll(queue, notify)
+    }.bind(this))
+    .fail(this._handleError.bind(this))
     .then(function () {
-      return Q.invoke(storage, 'dequeue', succeeded)
-    })
-    .fail(logError)
+      return Q.invoke(this._storage, 'dequeue', succeeded)
+    }.bind(this))
+    .fail(this._handleError.bind(this))
     .fin(function () {
-      var endTime = new Date()
-      status.queueProcessingTime = endTime - queueProcessingStarted
-      queueProcessingStarted = null
-      retryTimeout = setTimeout(processQueue, config.retry_after * 1000)
-    })
+      this.emit('processedQueue')
+      this._processingQueue = false
+      this._retryTimeout = setTimeout(this.processQueue.bind(this),
+        this._config.retry_after * 1000)
+    }.bind(this))
 }
 
-var addTorrent = function (filename) {
-  status.lastAdd = {
-    time: new Date(),
-    filename: filename
-  }
-  logfmt.log({
-    action: 'enqueue',
-    filename: filename
-  })
-  Q.invoke(storage, 'enqueue', filename)
-    .fail(logError)
-    .fin(processQueue)
+TransmissionProxy.prototype._initLibs = function () {
+  var context = {config: this._config}
+  var stor = path.join(__dirname, 'lib', 'storage', this._config.storage.type)
+  this._storage = require(stor).call(context)
+  var tran = path.join(__dirname, 'lib', 'transmission')
+  this._transmission = require(tran).call(context)
 }
 
-var assignSessionID = function (res) {
+TransmissionProxy.prototype._initAuth = function () {
+  this._authenticate = auth.connect(auth.basic(
+    {realm: 'Transmission'},
+    function (username, password, callback) {
+      callback(username === this._config.username &&
+        password === this._config.password)
+    }.bind(this)))
+}
+
+TransmissionProxy.prototype._configureRoutes = function () {
+  this._router.get(this._config.transmission.url,
+    this._authenticate,
+    this._manageSession.bind(this),
+    function (req, res) {
+      this._processRequest(req, res, req.params.method, req.params)
+    }.bind(this))
+  this._router.post(this._config.transmission.url,
+    this._authenticate,
+    this._manageSession.bind(this),
+    bodyParser.json({type: '*/*'}),
+    function (req, res) {
+      this._processRequest(req, res,
+        req.body.method, req.body.arguments)
+    }.bind(this))
+}
+
+TransmissionProxy.prototype._assignSessionID = function (res) {
   var sessionID = randomstring.generate(48)
   res.status(409)
     .set('X-Transmission-Session-Id', sessionID)
@@ -99,84 +140,31 @@ var assignSessionID = function (res) {
       '<p><code>X-Transmission-Session-Id: ' + sessionID + '</code></p>')
 }
 
-var manageTransmissionSession = function (req, res, next) {
+TransmissionProxy.prototype._manageSession = function (req, res, next) {
   res.set('Server', 'Transmission')
   var sessionID = req.get('X-Transmission-Session-Id')
   if (typeof sessionID === 'undefined') {
-    assignSessionID(res)
+    this._assignSessionID(res)
   } else {
     res.set('X-Transmission-Session-Id', sessionID)
     next()
   }
 }
 
-var processTransmissionRequest = function (req, res, method, args) {
+TransmissionProxy.prototype._processRequest = function (req, res, method, args) {
   var valid = (method === 'torrent-add' &&
     args !== null && typeof args === 'object' &&
     typeof args.filename === 'string')
   if (valid) {
-    addTorrent(args.filename)
+    this.addTorrent(args.filename)
   }
   res.json({success: valid})
 }
 
-var authenticate = auth.connect(auth.basic(
-  {realm: 'Transmission'},
-  function (username, password, callback) {
-    callback(username === config.username && password === config.password)
-  }))
-
-var app = express()
-app.use(logfmt.requestLogger())
-app.set('views', './views')
-app.set('view engine', 'jade')
-app.locals.version = pkg.version
-app.locals.timeago = timeago
-
-app.get('/', function (req, res) {
-  res.render('index')
-})
-
-app.get('/ping', function (req, res) {
-  res.set('Content-Type', 'text/plain')
-    .send('OK')
-})
-
-app.get('/status',
-  authenticate,
-  function (req, res, next) {
-    Q.invoke(storage, 'getQueue')
-      .then(function (queue) {
-        res.render('status', {status: status, queue: queue})
-      })
-      .fail(next)
+TransmissionProxy.prototype._handleError = function (err) {
+  this.emit('error', {
+    error: err
   })
+}
 
-app.get(config.transmission.url,
-  authenticate,
-  manageTransmissionSession,
-  function (req, res) {
-    processTransmissionRequest(req, res, req.params.method, req.params)
-  })
-
-app.post(config.transmission.url,
-  authenticate,
-  manageTransmissionSession,
-  bodyParser.json({type: '*/*'}),
-  function (req, res) {
-    processTransmissionRequest(req, res, req.body.method, req.body.arguments)
-  })
-
-var port = process.env.OPENSHIFT_IOJS_PORT ||
-  process.env.OPENSHIFT_NODEJS_PORT ||
-  process.env.PORT ||
-  8080
-var addr = process.env.OPENSHIFT_IOJS_IP ||
-  process.env.OPENSHIFT_NODEJS_IP
-app.listen(port, addr, function () {
-  logfmt.log({
-    action: 'start',
-    port: port,
-    address: addr
-  })
-})
+module.exports = TransmissionProxy
