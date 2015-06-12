@@ -4,6 +4,7 @@
   "description": "A simple proxy server for the Transmission RPC API.",
   "main": "dist/index.js",
   "scripts": {
+    "prepublish": "gulp build",
     "start": "node dist/server.js"
   },
   "author": "Tim De Pauw <hi@tmdpw.eu> (https://tmdpw.eu/)",
