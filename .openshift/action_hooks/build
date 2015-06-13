@@ -1,3 +1,5 @@
 #!/bin/bash
 
-cd $OPENSHIFT_REPO_DIR && npm install --loglevel error && npm prune
+if (( OPENSHIFT_IOJS_PORT )); then
+  cd $OPENSHIFT_REPO_DIR && npm install --loglevel error && npm prune
+fi
