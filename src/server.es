@@ -9,7 +9,7 @@ import logfmt from 'logfmt'
 import timeago from 'timeago'
 import fs from 'fs'
 import path from 'path'
-import TransmissionProxy from './'
+import TransmissionProxy from './transmission-proxy'
 
 const root = path.resolve(__dirname, '..')
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json')))
