@@ -38,10 +38,7 @@
     "mkdirp": "^0.5.1",
     "win-spawn": "^2.0.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/timdp/transmission-proxy"
-  },
+  "repository": "timdp/transmission-proxy",
   "bugs": {
     "url": "https://github.com/timdp/transmission-proxy/issues"
   },
